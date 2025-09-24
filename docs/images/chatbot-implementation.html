@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: white;
+            margin: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #0052cc;
+        }
+        .chatbot {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .section {
+            border: 2px solid #0052cc;
+            border-radius: 10px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0052cc;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .component {
+            background: white;
+            border: 1px solid #4c9aff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .component-title {
+            font-weight: bold;
+            color: #172b4d;
+            margin-bottom: 8px;
+        }
+        .component-desc {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .feature {
+            background: #e6f0ff;
+            color: #0052cc;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+        }
+        .flow {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+        }
+        .flow-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .step {
+            background: white;
+            border: 2px solid #4c9aff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #0052cc;
+        }
+        .arrow {
+            font-size: 20px;
+            color: #4c9aff;
+        }
+        .step-label {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">ChatBotScreen Implementation</div>
+        
+        <div class="chatbot">
+            <!-- UI Components -->
+            <div class="section">
+                <div class="section-title">🎨 UI Components</div>
+                
+                <div class="component">
+                    <div class="component-title">Header</div>
+                    <div class="component-desc">Navigation and settings</div>
+                    <div class="features">
+                        <span class="feature">Back Button</span>
+                        <span class="feature">Settings</span>
+                        <span class="feature">Gmail Status</span>
+                    </div>
+                </div>
+                
+                <div class="component">
+                    <div class="component-title">MessageList</div>
+                    <div class="component-desc">FlatList with optimized rendering</div>
+                    <div class="features">
+                        <span class="feature">Virtualization</span>
+                        <span class="feature">Auto-scroll</span>
+                        <span class="feature">Message Bubbles</span>
+                    </div>
+                </div>
+                
+                <div class="component">
+                    <div class="component-title">InputArea</div>
+                    <div class="component-desc">Text input and attachments</div>
+                    <div class="features">
+                        <span class="feature">Multi-line Input</span>
+                        <span class="feature">File Picker</span>
+                        <span class="feature">Send Button</span>
+                    </div>
+                </div>
+                
+                <div class="component">
+                    <div class="component-title">TypingIndicator</div>
+                    <div class="component-desc">AI response animation</div>
+                    <div class="features">
+                        <span class="feature">Animated Dots</span>
+                        <span class="feature">Loading State</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Technical Features -->
+            <div class="section">
+                <div class="section-title">⚙️ Technical Features</div>
+                
+                <div class="component">
+                    <div class="component-title">Real-time Chat</div>
+                    <div class="component-desc">Supabase real-time subscriptions</div>
+                    <div class="features">
+                        <span class="feature">Live Updates</span>
+                        <span class="feature">Message Sync</span>
+                        <span class="feature">Offline Support</span>
+                    </div>
+                </div>
+                
+                <div class="component">
+                    <div class="component-title">Gmail Integration</div>
+                    <div class="component-desc">Email search and source citations</div>
+                    <div class="features">
+                        <span class="feature">OAuth Tokens</span>
+                        <span class="feature">Email Search</span>
+                        <span class="feature">Source Links</span>
+                    </div>
+                </div>
+                
+                <div class="component">
+                    <div class="component-title">Auto-scroll Optimization</div>
+                    <div class="component-desc">Smart scrolling with performance</div>
+                    <div class="features">
+                        <span class="feature">Throttled Events</span>
+                        <span class="feature">Smart Detection</span>
+                        <span class="feature">Cross-platform</span>
+                    </div>
+                </div>
+                
+                <div class="component">
+                    <div class="component-title">File Attachments</div>
+                    <div class="component-desc">Image picker and file handling</div>
+                    <div class="features">
+                        <span class="feature">Image Picker</span>
+                        <span class="feature">Cloud Upload</span>
+                        <span class="feature">Preview</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Flow -->
+            <div class="section flow">
+                <div class="section-title">🔄 Message Processing Flow</div>
+                <div class="flow-steps">
+                    <div>
+                        <div class="step">1</div>
+                        <div class="step-label">User Input</div>
+                    </div>
+                    <div class="arrow">➡️</div>
+                    <div>
+                        <div class="step">2</div>
+                        <div class="step-label">Validation</div>
+                    </div>
+                    <div class="arrow">➡️</div>
+                    <div>
+                        <div class="step">3</div>
+                        <div class="step-label">File Upload</div>
+                    </div>
+                    <div class="arrow">➡️</div>
+                    <div>
+                        <div class="step">4</div>
+                        <div class="step-label">AI API</div>
+                    </div>
+                    <div class="arrow">➡️</div>
+                    <div>
+                        <div class="step">5</div>
+                        <div class="step-label">Stream Response</div>
+                    </div>
+                    <div class="arrow">➡️</div>
+                    <div>
+                        <div class="step">6</div>
+                        <div class="step-label">UI Update</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Optimizations -->
+        <div style="margin-top: 30px; padding: 20px; background: #fff5f5; border-radius: 10px;">
+            <h3 style="color: #ff5630; margin-bottom: 15px;">Performance Optimizations</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>Scroll Throttling</strong><br>
+                    <small>90% reduction in scroll event calls</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>Message Batching</strong><br>
+                    <small>Efficient message rendering with virtualization</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>Memory Management</strong><br>
+                    <small>Proper cleanup of subscriptions and listeners</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>API Caching</strong><br>
+                    <small>Gmail search result caching and debouncing</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

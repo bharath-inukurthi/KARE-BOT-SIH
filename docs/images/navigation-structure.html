@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: white;
+            margin: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #0052cc;
+        }
+        .navigation {
+            display: flex;
+            gap: 30px;
+        }
+        .stack-nav, .tab-nav {
+            flex: 1;
+        }
+        .nav-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0052cc;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 10px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+            border-radius: 8px;
+        }
+        .screen {
+            background: white;
+            border: 2px solid #4c9aff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .screen-title {
+            font-weight: bold;
+            color: #172b4d;
+            margin-bottom: 5px;
+        }
+        .screen-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        .animation {
+            background: #fff5f5;
+            border-color: #ff5630;
+            font-size: 11px;
+            color: #ff5630;
+        }
+        .main-tabs {
+            background: linear-gradient(135deg, #e6f7ff 0%, #b3e0ff 100%);
+            border-color: #0052cc;
+        }
+        .main-tabs .screen-title {
+            color: #0052cc;
+        }
+        .arrows {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            font-size: 20px;
+            color: #4c9aff;
+        }
+        .arrow-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .arrow-label {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">Navigation Structure - React Navigation</div>
+        
+        <div class="navigation">
+            <!-- Stack Navigator -->
+            <div class="stack-nav">
+                <div class="nav-title">📱 Stack Navigator (MainStack)</div>
+                
+                <div class="screen main-tabs">
+                    <div class="screen-title">MainTabs</div>
+                    <div class="screen-desc">Main tab navigation container</div>
+                </div>
+                
+                <div class="screen animation">
+                    <div class="screen-title">CircularsScreen</div>
+                    <div class="screen-desc">Left pop-out animation</div>
+                </div>
+                
+                <div class="screen animation">
+                    <div class="screen-title">CertificatesScreen</div>
+                    <div class="screen-desc">Left pop-out animation</div>
+                </div>
+                
+                <div class="screen animation">
+                    <div class="screen-title">FacultyAvailabilityScreen</div>
+                    <div class="screen-desc">Left pop-out animation</div>
+                </div>
+                
+                <div class="screen animation">
+                    <div class="screen-title">CGPAScreen</div>
+                    <div class="screen-desc">Left pop-out animation</div>
+                </div>
+                
+                <div class="screen animation">
+                    <div class="screen-title">UserDetailsScreen</div>
+                    <div class="screen-desc">Right pop-out animation</div>
+                </div>
+                
+                <div class="screen animation">
+                    <div class="screen-title">PreviewScreen</div>
+                    <div class="screen-desc">Right pop-out animation</div>
+                </div>
+            </div>
+            
+            <!-- Arrows -->
+            <div class="arrows">
+                <div class="arrow-group">
+                    <div>⬅️</div>
+                    <div class="arrow-label">Left Pop-out</div>
+                </div>
+                <div class="arrow-group">
+                    <div>➡️</div>
+                    <div class="arrow-label">Right Pop-out</div>
+                </div>
+            </div>
+            
+            <!-- Tab Navigator -->
+            <div class="tab-nav">
+                <div class="nav-title">🏠 Tab Navigator (MainTabs)</div>
+                
+                <div class="screen">
+                    <div class="screen-title">ChatBotScreen</div>
+                    <div class="screen-desc">AI chatbot interface with Gmail integration</div>
+                </div>
+                
+                <div class="screen">
+                    <div class="screen-title">ToolsScreen</div>
+                    <div class="screen-desc">Academic tools hub and navigation</div>
+                </div>
+                
+                <div class="screen">
+                    <div class="screen-title">ProfileScreen</div>
+                    <div class="screen-desc">User profile management and settings</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Animation Details -->
+        <div style="margin-top: 30px; padding: 20px; background: #f8f9ff; border-radius: 10px;">
+            <h3 style="color: #0052cc; margin-bottom: 15px;">Animation Types</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #4c9aff;">
+                    <strong>Left Pop-out Animation</strong><br>
+                    <small>Screens slide in from right, exit to left. Used for academic tools.</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #4c9aff;">
+                    <strong>Right Pop-out Animation</strong><br>
+                    <small>Screens slide in from left, exit to right. Used for user details and previews.</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #4c9aff;">
+                    <strong>Tab Navigation</strong><br>
+                    <small>Bottom tab navigation with smooth transitions between main screens.</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #4c9aff;">
+                    <strong>Gesture Navigation</strong><br>
+                    <small>Swipe gestures for back navigation and screen transitions.</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Screen Categories -->
+        <div style="margin-top: 30px; padding: 20px; background: #fff5f5; border-radius: 10px;">
+            <h3 style="color: #ff5630; margin-bottom: 15px;">Screen Categories</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>Core Features</strong><br>
+                    <small>ChatBot, Tools, Profile - Main app functionality</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>Academic Tools</strong><br>
+                    <small>Circulars, Certificates, Faculty, CGPA - Student services</small>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ff5630;">
+                    <strong>User Management</strong><br>
+                    <small>UserDetails, Preview - Profile and document management</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
