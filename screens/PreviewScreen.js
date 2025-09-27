@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Modal, TouchableOpacity, StyleSheet, Text, SafeAreaView, Platform, StatusBar, ScrollView, Alert, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ImageViewer from 'react-native-image-zoom-viewer';
 import { getCachedImages } from './UserDetailsScreen';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 
 const PreviewScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { isVisitor, addVisitorStateChangeListener } = useVisitor();
   const [isModalVisible, setModalVisible] = useState(false);
   const [timetableUri, setTimetableUri] = useState(null);
   const [calendarUri, setCalendarUri] = useState(null);
@@ -17,66 +19,89 @@ const PreviewScreen = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Reload images whenever the screen comes into focus
+  // Reload images whenever the screen comes into focus or visitor mode changes
   useFocusEffect(
     React.useCallback(() => {
       loadImages();
       return () => {
         // Cleanup if needed
       };
-    }, [])
+    }, [isVisitor])
   );
+
+  // Listen for visitor state changes and reload images
+  useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      console.log('PreviewScreen: Visitor state changed to:', newVisitorState);
+      // Force reload images when visitor state changes
+      loadImages();
+    });
+
+    return unsubscribe;
+  }, [addVisitorStateChangeListener]);
 
   const loadImages = async () => {
     try {
       setIsLoading(true);
-      console.log('Starting to load cached images');
+      console.log('Starting to load images, visitor mode:', isVisitor);
       
-      // Get the latest user details
-      const userDetailsString = await AsyncStorage.getItem('userDetails');
-      if (!userDetailsString) {
-        console.warn('No user details found');
-        setIsLoading(false);
-        return;
-      }
-
-      const userDetails = JSON.parse(userDetailsString);
-      console.log('Loaded user details:', userDetails);
-
-      // Get stored image paths from AsyncStorage
-      const [timeTableUri, calendarUri] = await Promise.all([
-        AsyncStorage.getItem('timeTableUri'),
-        AsyncStorage.getItem('calendarUri')
-      ]);
-
-      // Verify files exist in protected storage
-      const [timeTableInfo, calendarInfo] = await Promise.all([
-        timeTableUri ? FileSystem.getInfoAsync(timeTableUri) : { exists: false },
-        calendarUri ? FileSystem.getInfoAsync(calendarUri) : { exists: false }
-      ]);
-
-      if (timeTableInfo.exists) {
-        console.log('Setting timetable URI:', timeTableUri.substring(0, 50) + '...');
-        setTimetableUri(timeTableUri);
+      if (isVisitor) {
+        // Use local assets for visitor mode
+        console.log('Loading visitor mode assets');
+        setTimetableUri(require('../assets/time-table.png'));
+        setCalendarUri(require('../assets/Academic-timetable.png'));
       } else {
-        console.warn('No timetable found in protected storage');
-      }
+        // For authenticated users, load from AsyncStorage
+        console.log('Loading cached images for authenticated user');
+        
+        // Get the latest user details
+        const userDetailsString = await AsyncStorage.getItem('userDetails');
+        if (!userDetailsString) {
+          console.warn('No user details found');
+          setIsLoading(false);
+          return;
+        }
 
-      if (calendarInfo.exists) {
-        console.log('Setting calendar URI:', calendarUri.substring(0, 50) + '...');
-        setCalendarUri(calendarUri);
-      } else {
-        console.warn('No calendar found in protected storage');
+        const userDetails = JSON.parse(userDetailsString);
+        console.log('Loaded user details:', userDetails);
+
+        // Get stored image paths from AsyncStorage
+        const [timeTableUri, calendarUri] = await Promise.all([
+          AsyncStorage.getItem('timeTableUri'),
+          AsyncStorage.getItem('calendarUri')
+        ]);
+
+        // Verify files exist in protected storage
+        const [timeTableInfo, calendarInfo] = await Promise.all([
+          timeTableUri ? FileSystem.getInfoAsync(timeTableUri) : { exists: false },
+          calendarUri ? FileSystem.getInfoAsync(calendarUri) : { exists: false }
+        ]);
+
+        if (timeTableInfo.exists) {
+          console.log('Setting timetable URI:', timeTableUri.substring(0, 50) + '...');
+          setTimetableUri(timeTableUri);
+        } else {
+          console.warn('No timetable found in protected storage');
+        }
+
+        if (calendarInfo.exists) {
+          console.log('Setting calendar URI:', calendarUri.substring(0, 50) + '...');
+          setCalendarUri(calendarUri);
+        } else {
+          console.warn('No calendar found in protected storage');
+        }
       }
     } catch (error) {
-      console.error('Error loading cached images:', {
+      console.error('Error loading images:', {
         message: error.message,
         stack: error.stack
       });
-      Alert.alert(
-        'Error',
-        'Failed to load schedules. Please try updating your details in the Profile screen.'
-      );
+      if (!isVisitor) {
+        Alert.alert(
+          'Error',
+          'Failed to load schedules. Please try updating your details in the Profile screen.'
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -85,11 +110,19 @@ const PreviewScreen = () => {
     const imageUrls = [];
     
     if (timetableUri) {
-      imageUrls.push({ url: timetableUri, props: { title: 'Class Timetable' } });
+      // Handle both local assets (require) and file URIs
+      const timetableSource = typeof timetableUri === 'number' 
+        ? Image.resolveAssetSource(timetableUri).uri 
+        : timetableUri;
+      imageUrls.push({ url: timetableSource, props: { title: 'Class Timetable' } });
     }
     
     if (calendarUri) {
-      imageUrls.push({ url: calendarUri, props: { title: 'Academic Calendar' } });
+      // Handle both local assets (require) and file URIs
+      const calendarSource = typeof calendarUri === 'number' 
+        ? Image.resolveAssetSource(calendarUri).uri 
+        : calendarUri;
+      imageUrls.push({ url: calendarSource, props: { title: 'Academic Calendar' } });
     }
     
     setImages(imageUrls);
@@ -117,7 +150,7 @@ const PreviewScreen = () => {
           backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : '#ffffff'
         }]}>
           <Image
-            source={{ uri: imageUri }}
+            source={typeof imageUri === 'number' ? imageUri : { uri: imageUri }}
             style={styles.previewImage}
             resizeMode="contain"
           />
@@ -134,7 +167,19 @@ const PreviewScreen = () => {
         <View style={styles.headerContent}>
           <View>
             <Text style={[styles.headerTitle, { color: theme.text }]}>Schedules</Text>
-            <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>Your academic timetable and calendar</Text>
+            <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+              {isVisitor ? 'Demo academic timetable and calendar' : 'Your academic timetable and calendar'}
+            </Text>
+            {isVisitor && (
+              <Text style={{
+                color: '#19C6C1',
+                fontSize: 12,
+                marginTop: 4,
+                fontWeight: '600'
+              }}>
+                Visitor Mode - Demo Data
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             style={[styles.themeToggle, { backgroundColor: isDarkMode ? '#1e3a8a' : '#e0f2fe' }]}

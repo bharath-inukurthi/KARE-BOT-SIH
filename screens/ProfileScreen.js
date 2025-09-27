@@ -44,7 +44,7 @@ const COLORS = {
 
 const ProfileScreen = () => {
   const { isDarkMode } = useTheme();
-  const { isVisitor } = useVisitor();
+  const { isVisitor, clearVisitorMode, addVisitorStateChangeListener } = useVisitor();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.3)).current;
   // Add loading animation refs
@@ -147,6 +147,26 @@ useEffect(() => {
     loadUserData();
   }, []);
 
+  // Listen for visitor state changes and reset user data
+  React.useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      // Clear user data when visitor state changes
+      setUser(null);
+      setSection('');
+      setYear('');
+      setSemester('');
+      setIsEditing(false);
+      
+      // Reload user data based on new visitor state
+      if (!newVisitorState) {
+        // If switching back to user mode, reload user data
+        loadUserData();
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Show or hide loading based on isLoading state
   React.useEffect(() => {
     animateLoading(isLoading);
@@ -224,6 +244,9 @@ useEffect(() => {
       if (error) {
         throw error;
       }
+
+      // Clear visitor mode when signing out
+      await clearVisitorMode();
 
       console.log('User signed out successfully');
       // Note: The App component will handle redirecting to the login screen

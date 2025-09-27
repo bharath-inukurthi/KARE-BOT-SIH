@@ -20,7 +20,7 @@ import { MaterialIcons, FontAwesome5, Ionicons, MaterialCommunityIcons, Feather 
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useVisitor } from '../context/VisitorContext';
-import { mockFaculties } from '../data/mockData';
+import { mockFaculties, facultyList, facultyScheduleData } from '../data/mockData';
 
 // Mock data for dropdowns
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -29,16 +29,35 @@ const TIME_SLOTS = ['09-10', '10-11', '11-12', '12-13', '13-14', '14-15', '15-16
 // Function to call real API endpoint
 const fetchFacultyAvailability = async (facultyName, weekDay, time, isVisitor = false) => {
   try {
-    // Use mock availability data for visitors
+    // Use mock availability data for visitors with detailed schedule
     if (isVisitor) {
-      console.log('Visitor mode: using mock availability data');
-      // Return random availability for mock data
-      const isAvailable = Math.random() > 0.5;
-      return isAvailable 
-        ? `You can meet ${facultyName} in cabin 101 from ${time}`
-        : `${facultyName} is not available on ${weekDay} at ${time}`;
+      console.log('Visitor mode: using mock availability data with detailed schedule');
+      
+      // Find the faculty member in the new mock data structure
+      const faculty = facultyScheduleData[facultyName];
+      
+      if (faculty && faculty.schedule && faculty.schedule[weekDay] && faculty.schedule[weekDay][time]) {
+        const status = faculty.schedule[weekDay][time];
+        const cleanName = facultyName.replace(' Sir', '');
+        
+        switch (status) {
+          case 'busy':
+            return `${cleanName} is busy on ${weekDay} at ${time}`;
+          case 'lunch':
+            return `${cleanName} is on lunch break on ${weekDay} at ${time}`;
+          case 'leave':
+            return `${cleanName} is on leave`;
+          default:
+            // If it's a room number, they're available in that room
+            return `You can meet ${cleanName} in cabin ${status} from ${time}`;
+        }
+      }
+      
+      // Fallback if no schedule found
+      return `${facultyName} is not available on ${weekDay} at ${time}`;
     }
 
+    // Normal mode: Use real API
     // Remove the "Sir" suffix before sending to API
     const cleanName = facultyName.replace(' Sir', '');
     
@@ -72,31 +91,19 @@ const fetchFacultyList = async (isVisitor = false) => {
     // Always use mock data for visitors
     if (isVisitor) {
       console.log('Visitor mode: using mock faculty data');
-      return mockFaculties.map(faculty => ({
-        ...faculty,
-        name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
-      }));
+      return facultyList;
     }
 
     const response = await fetch('https://faculty-availability-api.onrender.com/faculty_list');
     if (!response.ok) {
       console.log('API failed, using mock data');
-      return mockFaculties.map(faculty => ({
-        ...faculty,
-        name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
-      }));
+      return facultyList;
     }
     const data = await response.json();
-    return data.map(faculty => ({
-      ...faculty,
-      name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
-    }));
+    return data;
   } catch (error) {
     console.log('API error, using mock data:', error);
-    return mockFaculties.map(faculty => ({
-      ...faculty,
-      name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
-    }));
+    return facultyList;
   }
 };
 
@@ -370,7 +377,7 @@ const StatusBanner = ({ type, text, theme }) => {
 
 const FacultyAvailabilityScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
-  const { isVisitor } = useVisitor();
+  const { isVisitor, addVisitorStateChangeListener } = useVisitor();
   const navigation = useNavigation();
 
   // State variables for tab selection
@@ -407,6 +414,60 @@ const FacultyAvailabilityScreen = () => {
 
     loadFacultyList();
   }, []);
+
+  // Listen for visitor state changes
+  useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      console.log('FacultyAvailabilityScreen: Visitor state changed to:', newVisitorState);
+      
+      if (newVisitorState) {
+        // Clear current selections when entering visitor mode
+        setSelectedFaculty('');
+        setSelectedDay('');
+        setSelectedTime('');
+        setQueryResult(null);
+        setError(null);
+        
+        // Reload faculty list with visitor data
+        const loadFacultyList = async () => {
+          try {
+            setIsLoadingFaculty(true);
+            setFacultyError(null);
+            const list = await fetchFacultyList(true); // Force visitor mode
+            setFacultyList(list);
+          } catch (error) {
+            console.error('Failed to load faculty list in visitor mode:', error);
+            setFacultyError('Failed to load faculty list. Please try again later.');
+          } finally {
+            setIsLoadingFaculty(false);
+          }
+        };
+        loadFacultyList();
+      } else {
+        // Reload faculty list with real data when exiting visitor mode
+        const loadFacultyList = async () => {
+          try {
+            setIsLoadingFaculty(true);
+            setFacultyError(null);
+            const list = await fetchFacultyList(false); // Force normal mode
+            setFacultyList(list);
+          } catch (error) {
+            console.error('Failed to load faculty list in normal mode:', error);
+            setFacultyError('Failed to load faculty list. Please try again later.');
+          } finally {
+            setIsLoadingFaculty(false);
+          }
+        };
+        loadFacultyList();
+      }
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [addVisitorStateChangeListener]);
 
   // Handle the faculty availability query
   const handleFacultyQuery = async () => {
@@ -520,6 +581,31 @@ const FacultyAvailabilityScreen = () => {
         )}
       </View>
       <ScrollView contentContainerStyle={{ padding: 0, backgroundColor: theme.background, minHeight: '100%' }}>
+        {/* Visitor demo notice */}
+        {isVisitor && (
+          <View style={{ 
+            backgroundColor: theme.primary + '15', 
+            borderRadius: 12, 
+            marginHorizontal: 18, 
+            marginTop: 14, 
+            marginBottom: 14,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: theme.primary + '30'
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <MaterialIcons name="info-outline" size={20} color={theme.primary} style={{ marginRight: 10, marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.primary, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>
+                  Demo Mode Active
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 18 }}>
+                  You're viewing demo faculty availability data. In visitor mode, this feature shows simulated schedules and availability status for demonstration purposes only.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
         {/* Info/alert message */}
         <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: theme.surface, borderRadius: 12, padding: 10, marginBottom: 18 }}>

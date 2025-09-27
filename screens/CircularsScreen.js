@@ -396,7 +396,7 @@ const CircularsScreen = ({ navigation }) => {
   const fetchControllerRef = useRef(null);
 
   const { isDarkMode, theme } = useTheme();
-  const { isVisitor } = useVisitor();
+  const { isVisitor, addVisitorStateChangeListener } = useVisitor();
 
   // FIXED: Use refs for component-specific state
   const loadingItemsRef = useRef(new Map());
@@ -412,7 +412,7 @@ const CircularsScreen = ({ navigation }) => {
         startBackgroundLoading();
       }, 0);
     }
-  }, []);
+  }, [isVisitor]); // Add isVisitor dependency
 
   // Initialize component state from global variables
   useEffect(() => {
@@ -846,6 +846,56 @@ const CircularsScreen = ({ navigation }) => {
     }
   }, []);
 
+  // Listen for visitor state changes and reset circulars
+  useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      console.log('Visitor state changed to:', newVisitorState, 'resetting circulars...');
+      
+      // Force immediate state reset
+      setOriginalData([]);
+      setSearchQuery('');
+      setDebouncedSearchQuery('');
+      setLoadingItems(new Map());
+      setHasDataLoaded(false);
+      
+      // Reset global variables immediately
+      globalCircularsData = [];
+      hasLoadedData = false;
+      isLoadingInBackground = false;
+      lastLoadingProgress = 0;
+      shouldShowLoadingIndicator = false;
+      initialLoadStarted = false;
+      receivedCount = 0;
+      
+      // Clear intervals and controllers
+      if (loadingUpdateInterval) {
+        clearInterval(loadingUpdateInterval);
+        loadingUpdateInterval = null;
+      }
+      if (backgroundLoadingController) {
+        backgroundLoadingController.abort();
+        backgroundLoadingController = null;
+      }
+      
+      // Reset loading states
+      setLoading(true);
+      setInitialLoading(true);
+      setLoadingProgress(0);
+      setShowFullScreenLoading(true);
+      setShowConnectingOverlay(true);
+      setShowSideLoading(false);
+      loadingOpacity.setValue(1);
+      
+      // Force a re-render by updating state
+      setTimeout(() => {
+        console.log('Starting fresh loading for visitor state:', newVisitorState);
+        startBackgroundLoading({ forceRefresh: true });
+      }, 50);
+    });
+
+    return unsubscribe;
+  }, [addVisitorStateChangeListener]);
+
   // Add this new function to handle manual refresh
   const handleManualRefresh = useCallback(() => {
     setOriginalData([]);
@@ -882,6 +932,26 @@ const CircularsScreen = ({ navigation }) => {
 
   // Modify startBackgroundLoading to handle initial loading better
   const startBackgroundLoading = async (options = {}) => {
+    // Handle visitor mode - use mock data directly
+    if (isVisitor) {
+      setShowConnectingOverlay(true);
+      globalCircularsData = [...mockCirculars]; // Use mock data
+      setOriginalData([...mockCirculars]);
+      setLoadingProgress(mockCirculars.length);
+      setLoading(false);
+      setShowFullScreenLoading(false);
+      setShowSideLoading(false);
+      setShowConnectingOverlay(false);
+      setInitialLoading(false);
+      setHasDataLoaded(true);
+      hasLoadedData = true;
+      isLoadingInBackground = false;
+      lastLoadingProgress = mockCirculars.length;
+      shouldShowLoadingIndicator = false;
+      receivedCount = mockCirculars.length;
+      return;
+    }
+
     setShowConnectingOverlay(true); // Always show connecting overlay at the start
     globalCircularsData = [];
     setOriginalData([]);
@@ -1146,13 +1216,23 @@ const CircularsScreen = ({ navigation }) => {
     if (!isMounted.current) return;
     console.log('Circular press handler called for:', item.displayName, 'with ID:', itemId);
     
-    // Handle visitor mode - show redirect message
+    // Handle visitor mode - redirect to mock URL
     if (isVisitor) {
-      Alert.alert(
-        'Visitor Mode',
-        'This feature requires login. Please sign in to access circulars.',
-        [{ text: 'OK' }]
-      );
+      if (item.downloadUrl) {
+        try {
+          const canOpen = await Linking.canOpenURL(item.downloadUrl);
+          if (canOpen) {
+            await Linking.openURL(item.downloadUrl);
+          } else {
+            Alert.alert('Error', 'Cannot open this URL on your device.');
+          }
+        } catch (error) {
+          console.error('Error opening URL:', error);
+          Alert.alert('Error', 'Failed to open the URL.');
+        }
+      } else {
+        Alert.alert('Visitor Mode', 'Demo circular - no URL available');
+      }
       return;
     }
     

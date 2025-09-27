@@ -27,14 +27,46 @@ const FormsScreen = ({ navigation }) => {
   const [selectedForm, setSelectedForm] = useState(null);
 
   const { isDarkMode, theme } = useTheme();
-  const { isVisitor } = useVisitor();
+  const { isVisitor, addVisitorStateChangeListener } = useVisitor();
 
   useEffect(() => {
     const fetchForms = async () => {
       try {
         setLoading(true);
-        // Use mock data for visitor mode
-        setForms(mockForms);
+        // Use mock data only for visitor mode
+        if (isVisitor) {
+          setForms(mockForms);
+        } else {
+          // For authenticated users, fetch from actual API
+          try {
+            const response = await fetch('https://faculty-availability-api.onrender.com/list-objects?folder=Forms');
+            if (response.ok) {
+              const data = await response.json();
+              console.log('Forms API response:', data);
+              // Handle the API response structure: {files: [{file_name: "..."}]}
+              const formsList = data?.files || [];
+              // Transform the response to match expected format
+              const transformedForms = formsList.map((file, index) => ({
+                id: index + 1,
+                title: file.file_name.replace('.pdf', ''), // Remove .pdf extension for display
+                filename: file.file_name,
+                description: `Download ${file.file_name}`,
+                category: 'Forms',
+                lastUpdated: new Date().toISOString().split('T')[0],
+                isPublic: true
+              }));
+              setForms(transformedForms);
+            } else {
+              console.log('Forms API response not ok:', response.status);
+              // If API fails, show empty state with message
+              setForms([]);
+            }
+          } catch (apiError) {
+            console.error('API fetch error:', apiError);
+            // Show empty state if API fails
+            setForms([]);
+          }
+        }
       } catch (error) {
         console.error('Error fetching forms:', error);
         Alert.alert('Error', 'Unable to load forms. Please try again.');
@@ -44,7 +76,76 @@ const FormsScreen = ({ navigation }) => {
     };
 
     fetchForms();
-  }, []);
+  }, [isVisitor]); // Add isVisitor dependency
+
+  // Listen for visitor state changes and reset forms
+  useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      console.log('Visitor state changed to:', newVisitorState, 'resetting forms...');
+      
+      // Force immediate state reset
+      setForms([]);
+      setSearchQuery('');
+      setSelectedForm(null);
+      setLoadingItems(new Map());
+      
+      // Refetch forms based on new visitor state
+      const fetchForms = async () => {
+        try {
+          setLoading(true);
+          console.log('Fetching forms for visitor state:', newVisitorState);
+          
+          if (newVisitorState) {
+            console.log('Loading mock forms for visitor mode');
+            setForms(mockForms);
+          } else {
+            console.log('Fetching real forms for authenticated user');
+            // For authenticated users, fetch from actual API
+            try {
+            const response = await fetch('https://faculty-availability-api.onrender.com/list-objects?folder=Forms');
+            if (response.ok) {
+              const data = await response.json();
+              console.log('API response for forms:', data);
+              // Handle the API response structure: {files: [{file_name: "..."}]}
+              const formsList = data?.files || [];
+              // Transform the response to match expected format
+              const transformedForms = formsList.map((file, index) => ({
+                id: index + 1,
+                title: file.file_name.replace('.pdf', ''), // Remove .pdf extension for display
+                filename: file.file_name,
+                description: `Download ${file.file_name}`,
+                category: 'Forms',
+                lastUpdated: new Date().toISOString().split('T')[0],
+                isPublic: true
+              }));
+              setForms(transformedForms);
+            } else {
+              console.log('API response not ok:', response.status);
+              setForms([]);
+            }
+            } catch (apiError) {
+              console.error('API fetch error:', apiError);
+              setForms([]);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching forms:', error);
+          if (!newVisitorState) {
+            Alert.alert('Error', 'Unable to load forms. Please try again.');
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      // Add a small delay to ensure state is properly reset
+      setTimeout(() => {
+        fetchForms();
+      }, 50);
+    });
+
+    return unsubscribe;
+  }, [addVisitorStateChangeListener]);
 
   const filteredForms = forms.filter(form =>
     form.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -53,13 +154,23 @@ const FormsScreen = ({ navigation }) => {
   const [loadingItems, setLoadingItems] = useState(new Map());
 
   const handleFormPress = async (item) => {
-    // Handle visitor mode - show redirect message
+    // Handle visitor mode - redirect to mock URL
     if (isVisitor) {
-      Alert.alert(
-        'Visitor Mode',
-        'This feature requires login. Please sign in to access forms.',
-        [{ text: 'OK' }]
-      );
+      if (item.downloadUrl) {
+        try {
+          const canOpen = await Linking.canOpenURL(item.downloadUrl);
+          if (canOpen) {
+            await Linking.openURL(item.downloadUrl);
+          } else {
+            Alert.alert('Error', 'Cannot open this URL on your device.');
+          }
+        } catch (error) {
+          console.error('Error opening URL:', error);
+          Alert.alert('Error', 'Failed to open the URL.');
+        }
+      } else {
+        Alert.alert('Visitor Mode', 'Demo form - no URL available');
+      }
       return;
     }
     
@@ -74,7 +185,7 @@ const FormsScreen = ({ navigation }) => {
     newLoadingItems.set(itemId, true);
     setLoadingItems(newLoadingItems);
 
-    const url = `https://faculty-availability-api.onrender.com/get-item/?object_key=${encodeURIComponent(`Forms/${item.filename}`)}`;
+    const url = `https://faculty-availability-api.onrender.com/get-item?object_key=${encodeURIComponent(`Forms/${item.filename}`)}`;
 
     const cleanup = () => {
       const updated = new Map(loadingItems);
@@ -274,7 +385,12 @@ const FormsScreen = ({ navigation }) => {
                 styles.emptyText,
                 isDarkMode && styles.emptyTextDark
               ]}>
-                {searchQuery ? "No matching forms" : "No forms available"}
+                {searchQuery 
+                  ? "No matching forms" 
+                  : (isVisitor 
+                    ? "No forms available" 
+                    : "No forms available. Please check back later or contact support.")
+                }
               </Text>
             </View>
           )

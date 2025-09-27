@@ -403,7 +403,7 @@ const MainApp = () => {
 
 const AppContent = () => {
   const visitorContext = useVisitor();
-  const { isVisitor, setVisitorMode } = visitorContext;
+  const { isVisitor, setVisitorMode, clearVisitorMode } = visitorContext;
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -493,6 +493,9 @@ const AppContent = () => {
           } else {
             setUser(session.user);
             
+            // Clear visitor mode when user successfully signs in
+            await clearVisitorMode();
+            
             // Store Supabase user ID as UUID
             try {
               await AsyncStorage.setItem('currentUserUuid', session.user.id);
@@ -542,6 +545,10 @@ const AppContent = () => {
           }
         } else {
           setUser(session.user);
+          
+          // Clear visitor mode when user has an active session
+          await clearVisitorMode();
+          
           // Store Supabase user ID as UUID for initial session
           try {
             await AsyncStorage.setItem('currentUserUuid', session.user.id);
@@ -757,6 +764,10 @@ const AppContent = () => {
   // Create a test user for development
   const createTestUser = async () => {
     setIsLoading(true);
+    
+    // Clear visitor mode when switching to test user
+    await clearVisitorMode();
+    
     // Using a more standard email format that Supabase will accept
     const testEmail = 'test.klu@gmail.com';
     const testPassword = 'test123456';
@@ -921,6 +932,9 @@ const AppContent = () => {
           handleGoogleSignIn={() => {
             setIsLoading(true);
             console.log('Starting Google sign-in prompt');
+            
+            // Clear visitor mode when switching to Google sign-in
+            clearVisitorMode();
             
             promptAsync({
               useProxy: Platform.OS !== 'web' && __DEV__, // Use proxy in development

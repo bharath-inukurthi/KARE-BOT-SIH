@@ -126,6 +126,13 @@ const VisitorForm = ({ visible, onClose, onSuccess }) => {
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>
+            <View style={[styles.noticeContainer, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <Ionicons name="information-circle" size={20} color="#007AFF" style={styles.noticeIcon} />
+              <Text style={[styles.noticeText, { color: theme.text }]}>
+                By continuing as visitor, you will only get access to mocked functionality but not the actual resources and contents of university.
+              </Text>
+            </View>
+            
             <Text style={[styles.label, { color: theme.text }]}>Name *</Text>
             <TextInput
               style={[
@@ -259,6 +266,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  noticeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  noticeIcon: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
 

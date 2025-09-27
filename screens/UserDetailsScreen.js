@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -248,7 +248,7 @@ export const getCachedImages = async () => {
 };
 
 const UserDetailsScreen = ({ navigation, onComplete }) => {
-  const { isVisitor } = useVisitor();
+  const { isVisitor, setIsVisitor, addVisitorStateChangeListener } = useVisitor();
   const [section, setSection] = useState('');
   const [year, setYear] = useState('');
   const [semester, setSemester] = useState('');
@@ -261,6 +261,24 @@ const UserDetailsScreen = ({ navigation, onComplete }) => {
     loadUserDetails();
     // Ensure protected directory exists on component mount
     ensureProtectedDirectory();
+  }, []);
+
+  // Listen for visitor state changes and reset user data
+  React.useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      // Clear user data when visitor state changes
+      setSection('');
+      setYear('');
+      setSemester('');
+      
+      // Reload user data based on new visitor state
+      if (!newVisitorState) {
+        // If switching back to user mode, reload user data
+        loadUserDetails();
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadUserDetails = async () => {

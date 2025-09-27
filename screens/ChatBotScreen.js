@@ -15,7 +15,8 @@ import {
   Linking,
   Image,
   Alert,
-  ScrollView
+  ScrollView,
+  AppState
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -31,7 +32,7 @@ import { getValidGoogleAccessToken } from '../App';
 import * as SecureStore from 'expo-secure-store';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getMockChatbotResponse } from '../data/mockData';
+import { getMockChatbotResponse, getMockEmailContent } from '../data/mockData';
 // Removed SVG and MaskedView imports as they're no longer needed
 
 // API Configuration
@@ -239,7 +240,9 @@ const connectWebSocket = (onMessage) => {
   const ws = new WebSocket('wss://kare-chat-bot.onrender.com/ws/chat');
   
   ws.onopen = () => {
-    console.log('WebSocket connected');
+    console.log('✅ WebSocket connected successfully');
+    console.log('WebSocket URL:', ws.url);
+    console.log('WebSocket readyState:', ws.readyState);
   };
   
   ws.onmessage = (event) => {
@@ -253,7 +256,8 @@ const connectWebSocket = (onMessage) => {
   };
   
   ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
+    console.error('❌ WebSocket error:', error);
+    console.error('Error details:', error.message || 'Unknown error');
   };
   
   ws.onclose = (event) => {
@@ -614,7 +618,7 @@ const ChatBotScreen = () => {
   const sessionIdRef = useRef(null);
   const navigation = useNavigation();
   const { isDarkMode, theme } = useTheme();
-  const { isVisitor } = useVisitor();
+  const { isVisitor, addVisitorStateChangeListener } = useVisitor();
   const themeColors = isDarkMode ? HISTORY_COLORS.dark : HISTORY_COLORS.light;
 
   // Animation values
@@ -640,6 +644,9 @@ const ChatBotScreen = () => {
 
   // Add new state for new conversation
   const [isNewConversation, setIsNewConversation] = useState(false);
+
+  // Add state for sending indicator
+  const [sendingMessageId, setSendingMessageId] = useState(null);
 
   // Add this new state variable
   const [isGmailAuthenticated, setIsGmailAuthenticated] = useState(false);
@@ -670,7 +677,7 @@ const ChatBotScreen = () => {
   };
   
   // Add back the sources animation value
-  const sourcesAnimation = useRef(new Animated.Value(0)).current;
+  const sourcesAnimation = useRef(new Animated.Value(1)).current;
 
   // Add back the animation configuration
   const ANIMATION_CONFIG = {
@@ -772,7 +779,8 @@ const ChatBotScreen = () => {
   // Update the WebSocket message handling to use throttledStreamText
   useEffect(() => {
     if (userUuid) {
-      console.log('Initializing WebSocket connection...');
+      console.log('🔌 Initializing WebSocket connection...');
+      console.log('User UUID for WebSocket:', userUuid);
       wsRef.current = connectWebSocket((data) => {
         if (data.status === 'routing') {
           // Prevent duplicate routing messages for the same tool
@@ -784,6 +792,7 @@ const ChatBotScreen = () => {
           setCurrentTool(data.current_tool);
           console.log('Received tool:', data.current_tool); // Debug log to see actual tool names
           setIsTyping(true);
+          setSendingMessageId(null); // Clear sending indicator when AI starts processing
           setStreamingText('');
           setStreamingState('IDLE');
           
@@ -1135,6 +1144,10 @@ const ChatBotScreen = () => {
     };
 
     setMessages(prevMessages => [...prevMessages, newMessage]);
+    // Only set sending indicator for non-visitor mode
+    if (!isVisitor) {
+      setSendingMessageId(newMessage.id);
+    }
     setInputText('');
     setIsTyping(true);
     setAutoScrollEnabled(true); // Enable auto-scroll when user sends a new message
@@ -1152,21 +1165,82 @@ const ChatBotScreen = () => {
 
     // Handle visitor mode with mock responses
     if (isVisitor) {
+      // Create a single message that will show different tool names sequentially
+      const animationMessage = {
+        id: generateUniqueId(),
+        text: '',
+        sender: 'ai',
+        toolName: 'Mining Documents',
+        useShimmer: true,
+        isStreaming: false
+      };
+      
+      setMessages(prevMessages => [...prevMessages, animationMessage]);
+      
+      // After mining animation, update the same message to show brainstorming
       setTimeout(() => {
-        const mockResponse = getMockChatbotResponse(inputText.trim());
-        const botMessage = {
-          id: generateUniqueId(),
-          text: mockResponse,
-          sender: 'ai',
-          isStreaming: false
-        };
-        setMessages(prevMessages => [...prevMessages, botMessage]);
-        setIsTyping(false);
-      }, 1000);
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === animationMessage.id 
+              ? { ...msg, toolName: 'Brainstorming' }
+              : msg
+          )
+        );
+        
+        // After brainstorming, show the actual response
+        setTimeout(() => {
+          const mockData = getMockChatbotResponse(newMessage.text);
+          
+          // Update the same message with the actual response
+          setMessages(prevMessages => 
+            prevMessages.map(msg => 
+              msg.id === animationMessage.id 
+                ? { 
+                    ...msg, 
+                    text: mockData.response,
+                    toolName: null,
+                    useShimmer: false
+                  }
+                : msg
+            )
+          );
+          
+          setIsTyping(false);
+          setSendingMessageId(null); // Clear sending indicator
+          
+          // Set mock sources and animate
+          if (mockData.sources && mockData.sources.length > 0) {
+            setSessionSources(mockData.sources);
+            setIsSourcesExpanded(true);
+            
+            // Animate sources appearance using sourcesAnimation
+            setTimeout(() => {
+              sourcesAnimation.setValue(0);
+              Animated.spring(sourcesAnimation, {
+                toValue: 1,
+                useNativeDriver: true,
+                tension: 50,
+                friction: 9,
+                velocity: 0.5,
+                restDisplacementThreshold: 0.01,
+                restSpeedThreshold: 0.01,
+              }).start();
+            }, 100); // Small delay to ensure state is updated
+          }
+        }, 2000); // 2 second delay for brainstorming
+      }, 2000); // 2 second delay for mining docs
       return;
     }
 
     try {
+      // Check if user is properly authenticated
+      if (!userUuid) {
+        console.error('❌ No userUuid available - user not authenticated');
+        setIsTyping(false);
+        setSendingMessageId(null);
+        return;
+      }
+      
       // If no session exists, create a new one
       if (!sessionIdRef.current) {
         const sessionResponse = await createSession(userUuid, newMessage.text);
@@ -1196,14 +1270,30 @@ const ChatBotScreen = () => {
       }
 
       // Send message through WebSocket
+      console.log('=== WebSocket Debug Info ===');
+      console.log('WebSocket ref exists:', !!wsRef.current);
+      console.log('WebSocket readyState:', wsRef.current?.readyState);
+      console.log('WebSocket OPEN constant:', WebSocket.OPEN);
+      console.log('User UUID:', userUuid);
+      console.log('Session ID:', sessionIdRef.current);
+      console.log('Message text:', newMessage.text);
+      
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
+        const messageData = {
           question: newMessage.text,
           user_id: userUuid,
           session_id: sessionIdRef.current
-        }));
+        };
+        console.log('Sending to WebSocket:', JSON.stringify(messageData, null, 2));
+        wsRef.current.send(JSON.stringify(messageData));
+        console.log('✅ Message sent to WebSocket successfully');
       } else {
-        console.error('WebSocket is not connected');
+        console.error('❌ WebSocket is not connected!');
+        console.error('ReadyState:', wsRef.current?.readyState);
+        console.error('Expected:', WebSocket.OPEN);
+        if (wsRef.current) {
+          console.error('WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
+        }
       }
     } catch (error) {
       console.error('Error handling message:', error);
@@ -1267,170 +1357,365 @@ const ChatBotScreen = () => {
       isWave = true;
     }
     return (
-      <View 
-        style={[
-          styles.messageRow,
-          isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }
-        ]}
-        pointerEvents="box-none"
-      >
-        <View style={[
-          isUser ? styles.userBubble : styles.messageBubble,
-          isUser
-            ? { 
-                backgroundColor: themeColors.userMessageBg,
-                maxWidth: '70%'
-              }
-            : { 
-                backgroundColor: themeColors.botMessageBg, 
-                borderBottomLeftRadius: 4,
-                borderBottomRightRadius: 20,
-                maxWidth: '100%',
-                width: '100%',
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                elevation: 0
-              }
-        ]}>
-          {!isUser ? (
-            <View style={styles.markdownContainer}>
-              {/* Only show ToolWaveBubble if not a wave answer */}
-              {item.toolName && !isWave && (
-                <ToolWaveBubble
-                  toolName={item.toolName}
-                  themeColors={themeColors}
-                  isDarkMode={isDarkMode}
-                  shimmerAnim={shimmerAnim}
-                  useShimmer={item.useShimmer}
-                />
-              )}
-              {isWave ? (
-                <WavyText text={item.text} color={themeColors.text} fontSize={16} />
-              ) : (
-                <Markdown
-                  style={{
-                    body: { 
-                      color: themeColors.text,
-                      fontSize: 16,
-                      lineHeight: 22,
-                      textAlign: 'left'
-                    },
-                    code_inline: { 
-                      backgroundColor: themeColors.searchBg,
-                      padding: 4,
-                      borderRadius: 4,
-                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
-                    },
-                    code_block: {
-                      backgroundColor: themeColors.searchBg,
-                      padding: 8,
-                      borderRadius: 4,
-                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
-                    },
-                    paragraph: {
-                      marginVertical: 4
-                    },
-                    link: {
-                      color: themeColors.primary,
-                      textDecorationLine: 'underline'
-                    },
-                    table: {
-                      borderWidth: 2,
-                      borderColor: themeColors.tableBorder,
-                      width: Dimensions.get('window').width - 32, // Use screen width
-                      backgroundColor: themeColors.cardBg
-                    },
-                    tr: {
-                      borderBottomWidth: 2,
-                      borderBottomColor: themeColors.tableBorder
-                    },
-                    th: {
-                      padding: 12,
-                      borderRightWidth: 2,
-                      borderRightColor: themeColors.tableBorder,
-                      borderBottomWidth: 2,
-                      borderBottomColor: themeColors.tableBorder,
-                      minWidth: 100, // Ensure headers have minimum width
-                      backgroundColor: themeColors.tableHeaderBg,
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      color: themeColors.tableText
-                    },
-                    td: {
-                      padding: 12,
-                      borderRightWidth: 2,
-                      borderRightColor: themeColors.tableBorder,
-                      borderBottomWidth: 1,
-                      borderBottomColor: themeColors.tableCellBorder,
-                      minWidth: 100, // Ensure cells have minimum width
-                      textAlign: 'center',
-                      color: themeColors.tableText
-                    }
-                  }}
-                  onLinkPress={handleLinkPress}
-                  rules={{
-                    table: (node, children, parent, styles) => (
-                      <View key={node.key} style={{ width: '100%' }}>
-                        <View style={styles.table}>
-                          {children}
+      <View style={styles.messageContainer}>
+        <View 
+          style={[
+            styles.messageRow,
+            isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={[
+            isUser ? styles.userBubble : styles.messageBubble,
+            isUser
+              ? { 
+                  backgroundColor: themeColors.userMessageBg,
+                  maxWidth: '70%'
+                }
+              : { 
+                  backgroundColor: themeColors.botMessageBg, 
+                  borderBottomLeftRadius: 4,
+                  borderBottomRightRadius: 20,
+                  maxWidth: '100%',
+                  width: '100%',
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  elevation: 0
+                }
+          ]}>
+            {!isUser ? (
+              <View style={styles.markdownContainer}>
+                {/* Only show ToolWaveBubble if not a wave answer */}
+                {item.toolName && !isWave && (
+                  <ToolWaveBubble
+                    toolName={item.toolName}
+                    themeColors={themeColors}
+                    isDarkMode={isDarkMode}
+                    shimmerAnim={shimmerAnim}
+                    useShimmer={item.useShimmer}
+                  />
+                )}
+                {isWave ? (
+                  <WavyText text={item.text} color={themeColors.text} fontSize={16} />
+                ) : (
+                  <Markdown
+                    style={{
+                      body: { 
+                        color: themeColors.text,
+                        fontSize: 16,
+                        lineHeight: 22,
+                        textAlign: 'left'
+                      },
+                      code_inline: { 
+                        backgroundColor: themeColors.searchBg,
+                        padding: 4,
+                        borderRadius: 4,
+                        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
+                      },
+                      code_block: {
+                        backgroundColor: themeColors.searchBg,
+                        padding: 8,
+                        borderRadius: 4,
+                        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
+                      },
+                      paragraph: {
+                        marginVertical: 4
+                      },
+                      link: {
+                        color: themeColors.primary,
+                        textDecorationLine: 'underline'
+                      },
+                      table: {
+                        borderWidth: 2,
+                        borderColor: themeColors.tableBorder,
+                        width: Dimensions.get('window').width - 32, // Use screen width
+                        backgroundColor: themeColors.cardBg
+                      },
+                      tr: {
+                        borderBottomWidth: 2,
+                        borderBottomColor: themeColors.tableBorder
+                      },
+                      th: {
+                        padding: 12,
+                        borderRightWidth: 2,
+                        borderRightColor: themeColors.tableBorder,
+                        borderBottomWidth: 2,
+                        borderBottomColor: themeColors.tableBorder,
+                        minWidth: 100, // Ensure headers have minimum width
+                        backgroundColor: themeColors.tableHeaderBg,
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        color: themeColors.tableText
+                      },
+                      td: {
+                        padding: 12,
+                        borderRightWidth: 2,
+                        borderRightColor: themeColors.tableBorder,
+                        borderBottomWidth: 1,
+                        borderBottomColor: themeColors.tableCellBorder,
+                        minWidth: 100, // Ensure cells have minimum width
+                        textAlign: 'center',
+                        color: themeColors.tableText
+                      }
+                    }}
+                    onLinkPress={handleLinkPress}
+                    rules={{
+                      table: (node, children, parent, styles) => (
+                        <View key={node.key} style={{ width: '100%' }}>
+                          <View style={styles.table}>
+                            {children}
+                          </View>
                         </View>
-                      </View>
-                    )
-                  }}
-                >
-                  {item.text}
-                </Markdown>
-              )}
-              {isStreaming && (
-                <Animated.View
-                  style={[
-                    styles.cursor,
-                    {
-                      opacity: cursorAnimation,
-                      transform: [{
-                        translateX: cursorAnimation.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, 2]
-                        })
-                      }]
-                    }
-                  ]}
-                />
-              )}
-            </View>
-          ) : (
-            <Text 
-              style={[
-                styles.messageText,
-                { color: WHITE }
-              ]}
-              selectable={true}
-            >
-              {item.text}
-            </Text>
-          )}
+                      )
+                    }}
+                  >
+                    {item.text}
+                  </Markdown>
+                )}
+                {isStreaming && (
+                  <Animated.View
+                    style={[
+                      styles.cursor,
+                      {
+                        opacity: cursorAnimation,
+                        transform: [{
+                          translateX: cursorAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 2]
+                          })
+                        }]
+                      }
+                    ]}
+                  />
+                )}
+              </View>
+            ) : (
+              <Text 
+                style={[
+                  styles.messageText,
+                  { color: WHITE }
+                ]}
+                selectable={true}
+              >
+                {item.text}
+              </Text>
+            )}
+          </View>
         </View>
+        {/* Sending indicator for user messages - below the message bubble */}
+        {isUser && sendingMessageId === item.id && (
+          <View style={styles.sendingIndicator}>
+            <ActivityIndicator 
+              size="small" 
+              color={themeColors.textSecondary} 
+            />
+            <Text style={[styles.sendingText, { color: themeColors.textSecondary }]}>
+              Sending...
+            </Text>
+          </View>
+        )}
       </View>
     );
-  }, [themeColors, cursorAnimation, messages.length]);
+  }, [themeColors, cursorAnimation, messages.length, sendingMessageId]);
 
   // Update the renderTypingIndicator function
   const renderTypingIndicator = () => null;
 
-  const handleSuggestionPress = (suggestion) => {
+  const handleSuggestionPress = async (suggestion) => {
+    // Set the input text
     setInputText(suggestion);
+    
+    // Create user message
+    const newMessage = {
+      id: generateUniqueId(),
+      text: suggestion,
+      sender: 'user'
+    };
+
+    setMessages(prevMessages => [...prevMessages, newMessage]);
+    // Only set sending indicator for non-visitor mode
+    if (!isVisitor) {
+      setSendingMessageId(newMessage.id);
+    }
+    setInputText('');
+    setIsTyping(true);
+    setAutoScrollEnabled(true);
+    
+    // Reset streaming state for new conversation turn
+    setStreamingState('IDLE');
+    setStreamingText('');
+    setIsStreaming(false);
+    isProcessingResponse.current = false;
+    lastProcessedMessageId.current = null;
+    if (streamingTimeout.current) {
+      clearTimeout(streamingTimeout.current);
+    }
+
+    // Handle visitor mode with mock data
+    if (isVisitor) {
+      // Create a single message that will show different tool names sequentially
+      const animationMessage = {
+        id: generateUniqueId(),
+        text: '',
+        sender: 'ai',
+        toolName: 'Mining Documents',
+        useShimmer: true,
+        isStreaming: false
+      };
+      
+      setMessages(prevMessages => [...prevMessages, animationMessage]);
+      
+      // After mining animation, update the same message to show brainstorming
+      setTimeout(() => {
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === animationMessage.id 
+              ? { ...msg, toolName: 'Brainstorming' }
+              : msg
+          )
+        );
+        
+        // After brainstorming, show the actual response
+        setTimeout(async () => {
+          const mockData = getMockChatbotResponse(suggestion);
+          
+          // Update the same message with the actual response
+          setMessages(prevMessages => 
+            prevMessages.map(msg => 
+              msg.id === animationMessage.id 
+                ? { 
+                    ...msg, 
+                    text: mockData.response,
+                    toolName: null,
+                    useShimmer: false
+                  }
+                : msg
+            )
+          );
+          
+          setIsTyping(false);
+          
+          // Set mock sources and animate
+          if (mockData.sources && mockData.sources.length > 0) {
+            setSessionSources(mockData.sources);
+            setIsSourcesExpanded(true);
+            
+            // Animate sources appearance using sourcesAnimation
+            setTimeout(() => {
+              sourcesAnimation.setValue(0);
+              Animated.spring(sourcesAnimation, {
+                toValue: 1,
+                useNativeDriver: true,
+                tension: 50,
+                friction: 9,
+                velocity: 0.5,
+                restDisplacementThreshold: 0.01,
+                restSpeedThreshold: 0.01,
+              }).start();
+            }, 100); // Small delay to ensure state is updated
+          }
+        }, 2000); // 2 second delay for brainstorming
+      }, 2000); // 2 second delay for mining docs
+    } else {
+      // Handle authenticated user flow (existing logic)
+      try {
+        // ... existing authenticated user logic
+      } catch (error) {
+        console.error('Error sending message:', error);
+        setIsTyping(false);
+        setSendingMessageId(null); // Clear sending indicator on error
+      }
+    }
   };
 
+  // Pre-defined suggestions for visitor mode - 2 queries from each language
+  const VISITOR_SUGGESTIONS = [
+    // English queries (2)
+    'What are the admission requirements?',
+    'How can I apply for scholarships?',
+    
+    // Tamil queries (2)
+    'சேர்க்கை தேவைகள் என்ன?', // What are admission requirements?
+    'உதவித்தொகை பற்றி சொல்லுங்கள்', // Tell me about scholarships
+    
+    // Hindi queries (2)  
+    'प्रवेश आवश्यकताएं क्या हैं?', // What are admission requirements?
+    'छात्रवृत्ति के बारे में बताएं', // Tell me about scholarships
+    
+    // Telugu queries (2)
+    'ప్రవేశ అవసరాలు ఏమిటి?', // What are admission requirements?
+    'స్కాలర్షిప్ గురించి చెప్పండి', // Tell me about scholarships
+    
+    // Malayalam queries (2)
+    'പ്രവേശന ആവശ്യകതകൾ എന്താണ്?', // What are admission requirements?
+    'സ്കോളർഷിപ്പിനെക്കുറിച്ച് പറയുക' // Tell me about scholarships
+  ];
+
   // Height of the bottom bar (suggestions + input bar)
-  const BOTTOM_BAR_HEIGHT = 110;
+  const BOTTOM_BAR_HEIGHT = 90;
 
   // Update the handleSourceClick function
   const handleSourceClick = async (citation) => {
     if (citation.source === 'Mail') {
       setIsMailRedirecting(true);
+      
+      // Set a timeout to clear the loading state after 5 seconds as a fallback
+      const timeoutId = setTimeout(() => {
+        console.log('Mail redirecting timeout reached, clearing loading state');
+        setIsMailRedirecting(false);
+      }, 5000);
       try {
         console.log('Attempting Gmail source click for citation:', citation);
-        // Always get a fresh access token
+        
+        // Handle visitor mode with mock email content
+        if (isVisitor) {
+          console.log('Visitor mode: Using mock email content');
+          const mockEmailContent = getMockEmailContent(citation);
+          
+          // Simulate render-email API call
+          try {
+            const renderRes = await fetch('https://kare-chat-bot.onrender.com/render-email/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mockEmailContent)
+            });
+            
+            if (renderRes.ok) {
+              const renderJson = await renderRes.json();
+              console.log('Mock render-email response:', renderJson);
+              
+              // Check for redirect_url in the response and open it if present
+              if (renderJson && renderJson.redirect_url) {
+                const redirectUrl = `https://kare-chat-bot.onrender.com/${renderJson.redirect_url.replace(/^\//, '')}`;
+                await Linking.openURL(redirectUrl);
+                // Clear loading state immediately after opening URL
+                clearTimeout(timeoutId);
+                setIsMailRedirecting(false);
+                return;
+              } else {
+                // Fallback: Show alert with mock email info
+                Alert.alert(
+                  'Mock Email Content',
+                  `Subject: ${citation.subject}\nFrom: ${citation.sender_name}\n\nThis is a demo email in visitor mode. In the full version, this would open the actual email from your Gmail account.`,
+                  [{ text: 'OK' }]
+                );
+              }
+            } else {
+              throw new Error('Failed to render mock email');
+            }
+          } catch (renderError) {
+            console.error('Error rendering mock email:', renderError);
+            // Fallback: Show alert with mock email info
+            Alert.alert(
+              'Mock Email Content',
+              `Subject: ${citation.subject}\nFrom: ${citation.sender_name}\n\nThis is a demo email in visitor mode. In the full version, this would open the actual email from your Gmail account.`,
+              [{ text: 'OK' }]
+            );
+          }
+          return;
+        }
+        
+        // Always get a fresh access token for authenticated users
         const accessToken = await getValidGoogleAccessToken();
         console.log('Gmail source click - Access token result:', accessToken ? 'Available' : 'Not available');
         
@@ -1582,6 +1867,10 @@ const ChatBotScreen = () => {
             if (renderJson && renderJson.redirect_url) {
               const redirectUrl = `https://kare-chat-bot.onrender.com/${renderJson.redirect_url.replace(/^\//, '')}`;
               await Linking.openURL(redirectUrl);
+              // Clear loading state immediately after opening URL
+              clearTimeout(timeoutId);
+              setIsMailRedirecting(false);
+              return;
             }
           } catch (e) {
             console.error('Error parsing render-email response:', e);
@@ -1592,6 +1881,10 @@ const ChatBotScreen = () => {
             ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(userEmail)}#inbox/${message.id}`
             : `https://mail.google.com/mail/u/0/#inbox/${message.id}`;
           await Linking.openURL(gmailUrl);
+          // Clear loading state immediately after opening URL
+          clearTimeout(timeoutId);
+          setIsMailRedirecting(false);
+          return;
         } else {
           console.log('No matching messages found');
           Alert.alert(
@@ -1609,7 +1902,11 @@ const ChatBotScreen = () => {
             [{ text: 'OK' }]
           );
         }
+        // Clear the timeout in case of error
+        clearTimeout(timeoutId);
       }
+      // Clear the timeout since we're done
+      clearTimeout(timeoutId);
       setIsMailRedirecting(false);
     }
   };
@@ -2018,6 +2315,111 @@ const ChatBotScreen = () => {
     }
   }, [messages, isStreaming, autoScrollEnabled]);
 
+  // Listen for visitor state changes
+  useEffect(() => {
+    const unsubscribe = addVisitorStateChangeListener((newVisitorState) => {
+      console.log('ChatBotScreen: Visitor state changed to:', newVisitorState);
+      
+      if (newVisitorState) {
+        // Clear chat data when entering visitor mode
+        setMessages([]);
+        setCurrentSessionId(null);
+        setSessions([]);
+        setSessionSources([]);
+        setUserUuid(null);
+        setInputText('');
+        setIsTyping(false);
+        setCurrentTool(null);
+        setShowHistory(false);
+        
+        // Clear stored session data
+        AsyncStorage.removeItem('lastSessionId').catch(console.error);
+        AsyncStorage.removeItem('currentUserUuid').catch(console.error);
+      } else {
+        // Reload user data when exiting visitor mode
+        const initializeUser = async () => {
+          try {
+            const storedUuid = await AsyncStorage.getItem('currentUserUuid');
+            if (storedUuid) {
+              setUserUuid(storedUuid);
+              
+              // Load last session ID
+              const lastSessionId = await AsyncStorage.getItem('lastSessionId');
+              if (lastSessionId) {
+                setCurrentSessionId(lastSessionId);
+                sessionIdRef.current = lastSessionId;
+                
+                // Load messages for the last session
+                const sessionMessages = await getMessages(lastSessionId);
+                const formattedMessages = sessionMessages.map((msg, idx) => ({
+                  id: msg.id || `msg-${msg.role}-${msg.content?.slice(0, 10) || idx}-${idx}-${Date.now()}`,
+                  text: msg.content,
+                  sender: msg.role === 'user' ? 'user' : 'ai',
+                }));
+                setMessages(formattedMessages);
+                
+                // Load session metadata (sources)
+                try {
+                  const metadata = await getSessionMetadata(lastSessionId);
+                  if (metadata && metadata.meta_data) {
+                    const sources = Array.isArray(metadata.meta_data) 
+                      ? metadata.meta_data 
+                      : [metadata.meta_data];
+                    setSessionSources(sources);
+                  }
+                } catch (error) {
+                  console.error('Error loading session metadata:', error);
+                  setSessionSources([]);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error reloading user data after visitor mode:', error);
+          }
+        };
+        initializeUser();
+      }
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [addVisitorStateChangeListener]);
+
+  // Listen for app state changes to clear mail redirecting state
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      console.log('App state changed to:', nextAppState, 'isMailRedirecting:', isMailRedirecting);
+      if (nextAppState === 'active' && isMailRedirecting) {
+        // App came back to foreground, clear the loading state
+        console.log('App returned to foreground, clearing mail redirecting state');
+        setIsMailRedirecting(false);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [isMailRedirecting]);
+
+  // Add a more aggressive approach - clear loading state on focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isMailRedirecting) {
+        console.log('Screen focused, clearing mail redirecting state');
+        setIsMailRedirecting(false);
+      }
+    };
+
+    const unsubscribe = navigation.addListener('focus', handleFocus);
+
+    return unsubscribe;
+  }, [navigation, isMailRedirecting]);
+
   // Update DownArrowButton component
   const DownArrowButton = useCallback(() => {
     if (!showDownArrow) return null;
@@ -2083,12 +2485,14 @@ const ChatBotScreen = () => {
       paddingBottom: 0,
       paddingTop: 10
     },
-    messageRow: {
+    messageContainer: {
       marginVertical: 4,
-      flexDirection: 'row',
-      alignItems: 'flex-end',
       paddingHorizontal: 16, // Add thin padding from screen edges
       paddingBottom: 8, // Increased padding between messages
+    },
+    messageRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
     },
     messageBubble: {
       borderTopLeftRadius: 20,
@@ -2114,6 +2518,18 @@ const ChatBotScreen = () => {
       userSelect: 'text',
       selectable: true,
       textSelectable: true
+    },
+    sendingIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+      alignSelf: 'flex-end',
+      justifyContent: 'flex-end',
+    },
+    sendingText: {
+      fontSize: 12,
+      marginLeft: 6,
+      fontStyle: 'italic',
     },
     timestampText: {
       fontSize: 10,
@@ -2209,15 +2625,75 @@ const ChatBotScreen = () => {
       zIndex: 999,
     },
     overlayTouchable: {
-      flex: 1,
-    },
-    historyHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 16,
-      borderBottomWidth: 1,
-    },
+    flex: 1,
+  },
+  suggestionsContainer: {
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 2,
+    maxHeight: 50,
+  },
+  suggestionsScroll: {
+    paddingRight: 8,
+  },
+  suggestionChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    minWidth: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  suggestionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  emptyStateSuggestions: {
+    marginTop: 20,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  visitorModeNotice: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(76, 219, 196, 0.1)',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 219, 196, 0.2)',
+    maxWidth: 300,
+  },
+  visitorModeNoticeText: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  visitorModeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
     historyTitleContainer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -2385,6 +2861,7 @@ const ChatBotScreen = () => {
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 24,
+      paddingBottom: 120, // Account for bottom bar in visitor mode
     },
     botLogoContainer: {
       alignItems: 'center',
@@ -2814,43 +3291,14 @@ const ChatBotScreen = () => {
               Your AI Campus Assistant
             </Text>
           </View>
-          <View style={styles.inputContainer}>
-            <View style={[
-              styles.inputBarCard,
-              { backgroundColor: themeColors.cardBg }
-            ]}>
-              <View style={styles.inputBarWrapper}>
-                <View style={[
-                  styles.inputBar,
-                  { backgroundColor: themeColors.searchBg }
-                ]}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { color: themeColors.text }
-                    ]}
-                    placeholder="Ask me anything about KARE..."
-                    placeholderTextColor={themeColors.textSecondary}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    multiline
-                    maxLength={500}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    inputText.trim() === '' && styles.sendButtonDisabled,
-                    { backgroundColor: themeColors.primary }
-                  ]}
-                  onPress={handleSendMessage}
-                  disabled={inputText.trim() === ''}
-                >
-                  <Icon name="send" size={26} color={WHITE} />
-                </TouchableOpacity>
-              </View>
+          {/* Visitor Mode Notice */}
+          {isVisitor && (
+            <View style={styles.visitorModeNotice}>
+              <Text style={[styles.visitorModeNoticeText, { color: themeColors.textSecondary }]}>
+                Click on suggestions below to explore demo responses
+              </Text>
             </View>
-          </View>
+          )}
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -2883,8 +3331,42 @@ const ChatBotScreen = () => {
       )}
 
       {/* Bottom fixed suggestion chips and input bar */}
-      {messages.length > 0 && (
+      {true && (
         <View style={styles.bottomBarWrapper}>
+          {/* Suggestion Chips - Only show in visitor mode */}
+          {isVisitor && (
+            <View style={[
+              styles.suggestionsContainer,
+              { backgroundColor: isDarkMode ? 'rgba(26, 37, 54, 0.95)' : 'rgba(255, 255, 255, 0.95)' }
+            ]}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.suggestionsScroll}
+              >
+                {VISITOR_SUGGESTIONS.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.suggestionChip,
+                      { 
+                        backgroundColor: themeColors.primary + '15',
+                        borderColor: themeColors.primary + '30'
+                      }
+                    ]}
+                    onPress={() => handleSuggestionPress(suggestion)}
+                  >
+                    <Text style={[
+                      styles.suggestionText,
+                      { color: themeColors.primary }
+                    ]}>
+                      {suggestion}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
           {/* Input Bar */}
           <View style={[
             styles.inputBarCard,
@@ -2939,6 +3421,23 @@ const ChatBotScreen = () => {
           <Text style={{ color: themeColors.text, marginTop: 16, fontSize: 16, fontWeight: '600' }}>
             Opening mail...
           </Text>
+          <TouchableOpacity
+            style={{
+              marginTop: 20,
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              backgroundColor: themeColors.primary,
+              borderRadius: 8,
+            }}
+            onPress={() => {
+              console.log('Manual clear of mail redirecting state');
+              setIsMailRedirecting(false);
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
