@@ -10,6 +10,7 @@ import {
   Animated
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -43,27 +44,11 @@ const tools = [
   },
   {
     id: 4,
-    title: 'Certificates',
-    icon: 'ribbon',
-    screen: 'CertificatesScreen',
-    color: '#27AE60',
-    darkColor: '#1B5E20'
-  },
-  {
-    id: 5,
     title: 'Ask KARE',
     icon: 'chatbubbles',
     screen: 'ChatBotScreen',
     color: '#E84393',
     darkColor: '#880E4F'
-  },
-  {
-    id: 6,
-    title: 'CGPA',
-    icon: 'calculator',
-    screen: 'CGPAScreen',
-    color: '#F39C12',
-    darkColor: '#E65100'
   }
 ];
 
@@ -124,6 +109,7 @@ const ToolCard = ({ item, onPress, index, isDarkMode }) => {
 
 const ToolsScreen = ({ navigation }) => {
   const { theme, isDarkMode } = useTheme();
+  const { isVisitor } = useVisitor();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -137,6 +123,11 @@ const ToolsScreen = ({ navigation }) => {
         <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
           Campus tools & resources
         </Text>
+        {isVisitor && (
+          <Text style={{ fontSize: 12, color: theme.primary, fontStyle: 'italic', marginTop: 4 }}>
+            Visitor Mode - Demo Only
+          </Text>
+        )}
       </View>
 
       <View style={styles.gridContainer}>

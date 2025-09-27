@@ -19,14 +19,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, FontAwesome5, Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
+import { mockFaculties } from '../data/mockData';
 
 // Mock data for dropdowns
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const TIME_SLOTS = ['09-10', '10-11', '11-12', '12-13', '13-14', '14-15', '15-16', '16-17'];
 
 // Function to call real API endpoint
-const fetchFacultyAvailability = async (facultyName, weekDay, time) => {
+const fetchFacultyAvailability = async (facultyName, weekDay, time, isVisitor = false) => {
   try {
+    // Use mock availability data for visitors
+    if (isVisitor) {
+      console.log('Visitor mode: using mock availability data');
+      // Return random availability for mock data
+      const isAvailable = Math.random() > 0.5;
+      return isAvailable 
+        ? `You can meet ${facultyName} in cabin 101 from ${time}`
+        : `${facultyName} is not available on ${weekDay} at ${time}`;
+    }
+
     // Remove the "Sir" suffix before sending to API
     const cleanName = facultyName.replace(' Sir', '');
     
@@ -55,22 +67,36 @@ const fetchFacultyAvailability = async (facultyName, weekDay, time) => {
 };
 
 // Function to fetch faculty list from API
-const fetchFacultyList = async () => {
+const fetchFacultyList = async (isVisitor = false) => {
   try {
+    // Always use mock data for visitors
+    if (isVisitor) {
+      console.log('Visitor mode: using mock faculty data');
+      return mockFaculties.map(faculty => ({
+        ...faculty,
+        name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
+      }));
+    }
+
     const response = await fetch('https://faculty-availability-api.onrender.com/faculty_list');
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      console.log('API failed, using mock data');
+      return mockFaculties.map(faculty => ({
+        ...faculty,
+        name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
+      }));
     }
-    
-    // The API returns a direct array, not a JSON object with a faculty_list property
     const data = await response.json();
-    
-    // Add "Sir" suffix to each faculty name
-  
-    return data;
+    return data.map(faculty => ({
+      ...faculty,
+      name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
+    }));
   } catch (error) {
-    console.error('Error fetching faculty list:', error);
-    throw error;
+    console.log('API error, using mock data:', error);
+    return mockFaculties.map(faculty => ({
+      ...faculty,
+      name: faculty.name.endsWith('Sir') ? faculty.name : `${faculty.name} Sir`
+    }));
   }
 };
 
@@ -344,6 +370,7 @@ const StatusBanner = ({ type, text, theme }) => {
 
 const FacultyAvailabilityScreen = () => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { isVisitor } = useVisitor();
   const navigation = useNavigation();
 
   // State variables for tab selection
@@ -368,7 +395,7 @@ const FacultyAvailabilityScreen = () => {
       try {
         setIsLoadingFaculty(true);
         setFacultyError(null);
-        const list = await fetchFacultyList();
+        const list = await fetchFacultyList(isVisitor);
         setFacultyList(list);
       } catch (error) {
         console.error('Failed to load faculty list:', error);
@@ -394,7 +421,7 @@ const FacultyAvailabilityScreen = () => {
     
     try {
       // Call the real API endpoint
-      const response = await fetchFacultyAvailability(selectedFaculty, selectedDay, selectedTime);
+      const response = await fetchFacultyAvailability(selectedFaculty, selectedDay, selectedTime, isVisitor);
       setQueryResult(response);
     } catch (error) {
       console.error('Error in faculty query:', error);
@@ -475,6 +502,22 @@ const FacultyAvailabilityScreen = () => {
         }}>
           Find faculty availability status
         </Text>
+        {isVisitor && (
+          <Text style={{
+            color: theme.primary,
+            fontSize: 12,
+            marginTop: 4,
+            textAlign: 'center',
+            fontWeight: '600',
+            backgroundColor: theme.primary + '20',
+            paddingHorizontal: 12,
+            paddingVertical: 4,
+            borderRadius: 12,
+            alignSelf: 'center'
+          }}>
+            Visitor Mode - Demo Data
+          </Text>
+        )}
       </View>
       <ScrollView contentContainerStyle={{ padding: 0, backgroundColor: theme.background, minHeight: '100%' }}>
         {/* Info/alert message */}

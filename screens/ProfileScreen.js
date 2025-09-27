@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import { fetchAndCacheTimeTable } from './UserDetailsScreen.js';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
 import { FontAwesome5, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { Dialog, Portal, Button } from 'react-native-paper';
 // Define the color scheme consistent with the app
@@ -43,6 +44,7 @@ const COLORS = {
 
 const ProfileScreen = () => {
   const { isDarkMode } = useTheme();
+  const { isVisitor } = useVisitor();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.3)).current;
   // Add loading animation refs
@@ -418,6 +420,11 @@ useEffect(() => {
             <Text style={{ fontSize: 22, fontWeight: 'bold', color: isDarkMode ? COLORS.primary : COLORS.primary, letterSpacing: 0.5 }}>
               My Profile
             </Text>
+            {isVisitor && (
+              <Text style={{ fontSize: 12, color: isDarkMode ? COLORS.primaryLight : COLORS.primary, fontStyle: 'italic', marginTop: 4 }}>
+                Visitor Mode - Demo Only
+              </Text>
+            )}
           </View>
 
           {/* Profile Card */}

@@ -18,6 +18,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { fetch } from 'expo/fetch';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
+import { mockCirculars } from '../data/mockData';
 
 // Persistent storage (outside component) - Data persists between remounts
 let globalCircularsData = [];
@@ -394,6 +396,7 @@ const CircularsScreen = ({ navigation }) => {
   const fetchControllerRef = useRef(null);
 
   const { isDarkMode, theme } = useTheme();
+  const { isVisitor } = useVisitor();
 
   // FIXED: Use refs for component-specific state
   const loadingItemsRef = useRef(new Map());
@@ -1142,6 +1145,17 @@ const CircularsScreen = ({ navigation }) => {
     if (loadingItemsRef.current.get(itemId)) return;
     if (!isMounted.current) return;
     console.log('Circular press handler called for:', item.displayName, 'with ID:', itemId);
+    
+    // Handle visitor mode - show redirect message
+    if (isVisitor) {
+      Alert.alert(
+        'Visitor Mode',
+        'This feature requires login. Please sign in to access circulars.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     // Set loading state immediately for this specific item only
     const newLoadingItems = new Map(loadingItemsRef.current);
     newLoadingItems.set(itemId, true);
@@ -1506,6 +1520,17 @@ const CircularsScreen = ({ navigation }) => {
         }}>
           University announcements & notices
         </Text>
+        {isVisitor && (
+          <Text style={{
+            color: '#19C6C1',
+            fontSize: 12,
+            marginTop: 4,
+            textAlign: 'center',
+            fontWeight: '600'
+          }}>
+            Visitor Mode - Demo Data
+          </Text>
+        )}
       </View>
 
       {/* Search Bar */}

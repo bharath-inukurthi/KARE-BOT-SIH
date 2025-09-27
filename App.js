@@ -25,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { VisitorProvider, useVisitor } from './context/VisitorContext';
 import LottieView from 'lottie-react-native';
 import supabase from './lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -39,9 +40,7 @@ import FormsScreen from './screens/FormsScreen';
 import UserDetailsScreen from './screens/UserDetailsScreen';
 import PreviewScreen from './screens/PreviewScreen';
 import CircularsScreen from './screens/CircularsScreen';
-import CertificatesScreen from './screens/CertificatesScreen';
 import ToolsScreen from './screens/ToolsScreen';
-import CGPAScreen from './screens/CGPAScreen';
 import SignInScreen from './screens/SignInScreen';
 
 // Prevents multiple web popup instances
@@ -249,24 +248,6 @@ const MainStack = () => {
           cardStyleInterpolator: leftPopOutInterpolator,
         }}
       />
-      <Stack.Screen 
-        name="CertificatesScreen" 
-        component={CertificatesScreen}
-        options={{
-          ...commonScreenOptions,
-          animation: 'slide_from_right',
-          cardStyleInterpolator: leftPopOutInterpolator,
-        }}
-      />
-      <Stack.Screen 
-        name="CGPAScreen" 
-        component={CGPAScreen}
-        options={{
-          ...commonScreenOptions,
-          animation: 'slide_from_right',
-          cardStyleInterpolator: leftPopOutInterpolator,
-        }}
-      />
 
       {/* Right pop-out screens (slide in from left, out to right) */}
       <Stack.Screen 
@@ -420,7 +401,9 @@ const MainApp = () => {
   );
 };
 
-const App = () => {
+const AppContent = () => {
+  const visitorContext = useVisitor();
+  const { isVisitor, setVisitorMode } = visitorContext;
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -963,6 +946,10 @@ const App = () => {
           setDebugMode={setDebugMode}
           errorMessage={errorMessage}
           setErrorMessage={setErrorMessage}
+          onVisitorSuccess={() => {
+            setVisitorMode(true);
+            setUser({ id: 'visitor', email: 'visitor@example.com' });
+          }}
         />
       </SafeAreaProvider>
     );
@@ -1173,5 +1160,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 });
+
+const App = () => {
+  return (
+    <VisitorProvider>
+      <AppContent />
+    </VisitorProvider>
+  );
+};
 
 export default App;

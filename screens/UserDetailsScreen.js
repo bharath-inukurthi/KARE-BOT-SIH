@@ -11,6 +11,7 @@ import {
   Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useVisitor } from '../context/VisitorContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
@@ -247,6 +248,7 @@ export const getCachedImages = async () => {
 };
 
 const UserDetailsScreen = ({ navigation, onComplete }) => {
+  const { isVisitor } = useVisitor();
   const [section, setSection] = useState('');
   const [year, setYear] = useState('');
   const [semester, setSemester] = useState('');
@@ -352,6 +354,11 @@ const UserDetailsScreen = ({ navigation, onComplete }) => {
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Set Up Your Profile</Text>
         <Text style={styles.headerSubtitle}>Help us personalize your experience</Text>
+        {isVisitor && (
+          <Text style={{ fontSize: 12, color: COLORS.primary, fontStyle: 'italic', marginTop: 4 }}>
+            Visitor Mode - Demo Only
+          </Text>
+        )}
       </View>
       <View style={styles.formArea}>
         {/* Section Dropdown */}

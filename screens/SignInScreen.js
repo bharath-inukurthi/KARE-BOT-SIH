@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Snackbar } from 'react-native-paper';
+import VisitorForm from '../components/VisitorForm';
 
 // Define the color scheme consistent with the app
 const COLORS = {
@@ -33,6 +34,7 @@ const SignInScreen = ({
   setDebugMode,
   errorMessage,
   setErrorMessage,
+  onVisitorSuccess,
 }) => {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -42,6 +44,9 @@ const SignInScreen = ({
   // Snackbar state
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  
+  // Visitor form state
+  const [visitorFormVisible, setVisitorFormVisible] = useState(false);
 
   const showSnackbar = (message) => {
     setSnackbarMessage(message);
@@ -136,6 +141,17 @@ const SignInScreen = ({
               {isLoading ? 'Signing in...' : 'Sign in with Google'}
             </Text>
           </TouchableOpacity>
+
+          {/* Visitor Button */}
+          <TouchableOpacity
+            style={styles.visitorButton}
+            onPress={() => setVisitorFormVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.visitorButtonText}>
+              Continue as Visitor
+            </Text>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Debug tools with animation */}
@@ -190,6 +206,18 @@ const SignInScreen = ({
           {snackbarMessage}
         </Text>
       </Snackbar>
+
+      {/* Visitor Form Modal */}
+      <VisitorForm
+        visible={visitorFormVisible}
+        onClose={() => setVisitorFormVisible(false)}
+        onSuccess={() => {
+          setVisitorFormVisible(false);
+          if (onVisitorSuccess) {
+            onVisitorSuccess();
+          }
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -265,6 +293,25 @@ const styles = StyleSheet.create({
     color: '#222',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  visitorButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: 260,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    marginTop: 12,
+  },
+  visitorButtonText: {
+    color: COLORS.button,
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   debugContainer: {
     width: '100%',

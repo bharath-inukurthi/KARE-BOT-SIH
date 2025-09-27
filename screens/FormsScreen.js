@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import WebView from 'react-native-webview';
 import { StatusBar } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
+import { mockForms } from '../data/mockData';
 
 const FormsScreen = ({ navigation }) => {
   const [forms, setForms] = useState([]);
@@ -25,20 +27,14 @@ const FormsScreen = ({ navigation }) => {
   const [selectedForm, setSelectedForm] = useState(null);
 
   const { isDarkMode, theme } = useTheme();
+  const { isVisitor } = useVisitor();
 
   useEffect(() => {
     const fetchForms = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://faculty-availability-api.onrender.com/list-objects/?folder=Forms');
-        const data = await response.json();
-        const formattedForms = data.files.map((file, index) => ({
-          id: String(index + 1),
-          title: file.file_name.replace(/-/g, ' '),
-          url: file.public_url,
-          filename: file.file_name
-        }));
-        setForms(formattedForms);
+        // Use mock data for visitor mode
+        setForms(mockForms);
       } catch (error) {
         console.error('Error fetching forms:', error);
         Alert.alert('Error', 'Unable to load forms. Please try again.');
@@ -57,6 +53,16 @@ const FormsScreen = ({ navigation }) => {
   const [loadingItems, setLoadingItems] = useState(new Map());
 
   const handleFormPress = async (item) => {
+    // Handle visitor mode - show redirect message
+    if (isVisitor) {
+      Alert.alert(
+        'Visitor Mode',
+        'This feature requires login. Please sign in to access forms.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     if (!item || !item.filename) {
       Alert.alert('Error', 'This document is not available.');
       return;
@@ -190,6 +196,17 @@ const FormsScreen = ({ navigation }) => {
         }}>
           Download university forms & documents
         </Text>
+        {isVisitor && (
+          <Text style={{
+            color: '#19C6C1',
+            fontSize: 12,
+            marginTop: 4,
+            textAlign: 'center',
+            fontWeight: '600'
+          }}>
+            Visitor Mode - Demo Data
+          </Text>
+        )}
       </View>
 
       {/* Search Bar */}

@@ -21,6 +21,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
+import { useVisitor } from '../context/VisitorContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import Markdown from 'react-native-markdown-display';
@@ -30,6 +31,7 @@ import { getValidGoogleAccessToken } from '../App';
 import * as SecureStore from 'expo-secure-store';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getMockChatbotResponse } from '../data/mockData';
 // Removed SVG and MaskedView imports as they're no longer needed
 
 // API Configuration
@@ -612,6 +614,7 @@ const ChatBotScreen = () => {
   const sessionIdRef = useRef(null);
   const navigation = useNavigation();
   const { isDarkMode, theme } = useTheme();
+  const { isVisitor } = useVisitor();
   const themeColors = isDarkMode ? HISTORY_COLORS.dark : HISTORY_COLORS.light;
 
   // Animation values
@@ -1146,6 +1149,22 @@ const ChatBotScreen = () => {
       clearTimeout(streamingTimeout.current);
     }
     cursorAnimation.stopAnimation();
+
+    // Handle visitor mode with mock responses
+    if (isVisitor) {
+      setTimeout(() => {
+        const mockResponse = getMockChatbotResponse(inputText.trim());
+        const botMessage = {
+          id: generateUniqueId(),
+          text: mockResponse,
+          sender: 'ai',
+          isStreaming: false
+        };
+        setMessages(prevMessages => [...prevMessages, botMessage]);
+        setIsTyping(false);
+      }, 1000);
+      return;
+    }
 
     try {
       // If no session exists, create a new one
@@ -2050,6 +2069,11 @@ const ChatBotScreen = () => {
       fontSize: 14,
       marginTop: 2,
     },
+    visitorModeText: {
+      fontSize: 12,
+      marginTop: 2,
+      fontStyle: 'italic',
+    },
     keyboardAvoidView: {
       flex: 1,
       position: 'relative',
@@ -2758,6 +2782,11 @@ const ChatBotScreen = () => {
           <Text style={[styles.headerSubtitle, { color: isDarkMode ? theme.textSecondary : TEXT_SECONDARY }]}>
             Get quick answers about campus
           </Text>
+          {isVisitor && (
+            <Text style={[styles.visitorModeText, { color: isDarkMode ? theme.textSecondary : TEXT_SECONDARY, fontSize: 12 }]}>
+              Visitor Mode - Demo Responses
+            </Text>
+          )}
         </View>
         <TouchableOpacity style={styles.headerIcon} onPress={toggleHistory}>
           <Icon name="history" size={26} color={isDarkMode ? theme.text : TEXT_DARK} />
